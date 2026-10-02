@@ -1,4 +1,7 @@
 <div align="center">
+
+<img width="96" height="auto" alt="332" src="https://github.com/user-attachments/assets/87ce35ec-7e90-4a0e-a61b-09e184a05bca" />
+
   
 # CS2-AntiWallHack
 

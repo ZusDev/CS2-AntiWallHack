@@ -10,7 +10,7 @@
 **It does not detect cheats, issue bans or replace a complete anti-cheat system.**
 
 [![Protection](https://img.shields.io/badge/protection-WallHack-6f42c1?style=for-the-badge)](#features)
-[![Framework](https://img.shields.io/badge/framework-SwiftlyS2-2ea44f?style=for-the-badge)](https://github.com/swiftlys2)
+[![Framework](https://img.shields.io/badge/framework-SwiftlyS2-2ea44f?style=for-the-badge)](https://github.com/swiftly-solution/swiftlys2)
 [![License](https://img.shields.io/badge/license-GNU%20GPL%20v3-2ea44f?style=for-the-badge)](LICENSE)
 
 This AC feature is taken from [CS2 AntiCheat Defense](https://github.com/ZusDev/CS2-Anticheat-Defense)

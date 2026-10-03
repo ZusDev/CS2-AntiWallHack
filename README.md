@@ -117,7 +117,7 @@ The included config.jsonc contains:
 
 ### Adjusting corner pop-in
 
-Larger `BoundsPadding` and `PredictionSeconds` values can make enemies available earlier. A longer `VisibleGraceTicks` period delays hiding them again. These settings trade stricter hiding for smoother appearances; prediction is an estimate, not a guarantee.
+Larger `BoundsPadding` and `PredictionSeconds` values can make enemies available earlier. A longer `VisibleGraceTicks` period delays hiding them again. These settings trade stricter hiding for smoother appearances and prediction is an estimate not a guarantee.
 
 Increasing `AlwaysVisibleDistance` also reveals nearby enemies earlier, but allows them through walls within that radius.
 

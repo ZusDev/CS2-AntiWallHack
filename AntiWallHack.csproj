@@ -5,10 +5,6 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-    <AssemblyName>AntiWallHack</AssemblyName>
-    <Version>1.0.1</Version>
-    <Authors>M1K@c</Authors>
-    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="src/**/*.cs" />

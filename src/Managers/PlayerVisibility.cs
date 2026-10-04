@@ -41,7 +41,7 @@ internal sealed class PlayerVisibility
         foreach (var row in hidden)
             row.Clear();
 
-        sight.BeginTick();
+        sight.Reset();
 
         HiddenPairs = 0;
     }
@@ -208,6 +208,10 @@ internal sealed class PlayerVisibility
             int targetSlot = nearest[i];
             var target = players[targetSlot]!;
 
+            // Keep transmitting throughout the existing hold without spending rays.
+            if (!VisibilityRules.CanHide(tick, visibleUntil[slot, targetSlot]))
+                continue;
+
             bool occluded = target.Complete && target.Player.IsAlive && target.Pawn.IsValid && distances[i] > settings.AlwaysVisibleDistance * settings.AlwaysVisibleDistance && sight.IsHidden(viewer, target);
 
             if (!occluded)
@@ -215,7 +219,7 @@ internal sealed class PlayerVisibility
                 visibleUntil[slot, targetSlot] = tick + settings.VisibleGraceTicks;
             }
 
-            else if (VisibilityRules.CanHide(tick, visibleUntil[slot, targetSlot]))
+            else
             {
                 // Never partially suppress a bundle because an entity became invalid.
                 if (target.Entities.Any(entity => !entity.IsValid || entity.Index == 0 || entity.Index >= TransmitMask.EntityLimit))

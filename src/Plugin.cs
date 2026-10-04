@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AntiWallHack;
 
-[PluginMetadata(Id = "AntiWallHack", Name = "AntiWallHack", Version = "1.0.0", Author = "M1K@c", Description = "Server-side line-of-sight filtering for nearby enemies.")]
+[PluginMetadata(Id = "AntiWallHack", Name = "AntiWallHack", Version = "1.0.1", Author = "M1K@c", Description = "Server-side line-of-sight filtering for nearby enemies.")]
 public sealed partial class Plugin : BasePlugin
 {
     private Config config = new();

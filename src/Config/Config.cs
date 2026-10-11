@@ -14,12 +14,13 @@ public sealed class Config
     }
 
     public bool Enabled { get; set; } = true;
+    public bool SmokeOcclusion { get; set; } = true;
     public int NearestEnemies { get; set; } = 5;
     public int VisibleGraceTicks { get; set; } = 20;
-    public float BoundsPadding { get; set; } = 48;
+    public float BoundsPadding { get; set; } = 38;
     public float PredictionSeconds { get; set; } = 0.2f;
     public float AlwaysVisibleDistance { get; set; } = 120;
-    public bool SetDontTransmitToZero { get; set; } = true;
 }
+
 
 

@@ -21,6 +21,7 @@ internal sealed class PlayerVisibility
     public int Traces => sight.Traces;
     public int BudgetSkips => sight.BudgetSkips;
     public int HiddenPairs { get; private set; }
+    public void OnSmokeExplosion(System.Numerics.Vector3 center, float time) => sight.OnSmokeExplosion(center, time);
 
     public PlayerVisibility(ISwiftlyCore core, Config settings)
     {

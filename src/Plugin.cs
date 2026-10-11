@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AntiWallHack;
 
-[PluginMetadata(Id = "AntiWallHack", Name = "AntiWallHack", Version = "1.0.1", Author = "M1K@c", Description = "Server-side line-of-sight filtering for nearby enemies.")]
+[PluginMetadata(Id = "AntiWallHack", Name = "AntiWallHack", Version = "1.0.2", Author = "M1K@c", Description = "Server-side line-of-sight filtering for nearby enemies.")]
 public sealed partial class Plugin : BasePlugin
 {
     private Config config = new();
@@ -51,11 +51,8 @@ public sealed partial class Plugin : BasePlugin
             return;
         }
 
-        if (config.SetDontTransmitToZero)
-        {
-            previousConvarValue ??= dontTransmit.ValueAsString;
-            dontTransmit.ValueAsString = "0";
-        }
+        previousConvarValue ??= dontTransmit.ValueAsString;
+        dontTransmit.ValueAsString = "0";
     }
 
     private unsafe void OnTransmit(nint infos, int count)
@@ -123,5 +120,6 @@ public sealed partial class Plugin : BasePlugin
         }
     }
 }
+
 
 

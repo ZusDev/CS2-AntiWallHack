@@ -18,6 +18,7 @@ public sealed partial class Plugin
         eventHooks.Add(Core.GameEvent.HookPost<EventPlayerDisconnect>(OnPlayerDisconnect));
         eventHooks.Add(Core.GameEvent.HookPost<EventRoundStart>(OnRoundStart));
         eventHooks.Add(Core.GameEvent.HookPost<EventRoundEnd>(OnRoundEnd));
+        eventHooks.Add(Core.GameEvent.HookPost<EventHegrenadeDetonate>(OnHeDetonate));
     }
 
     private void UnregisterEvents()
@@ -32,6 +33,11 @@ public sealed partial class Plugin
     }
 
     private HookResult OnPlayerSpawn(EventPlayerSpawn _) => ResetVisibility();
+    private HookResult OnHeDetonate(EventHegrenadeDetonate e)
+    {
+        visibility?.OnSmokeExplosion(new(e.X, e.Y, e.Z), Core.Engine.GlobalVars.CurrentTime);
+        return HookResult.Continue;
+    }
     private HookResult OnPlayerDeath(EventPlayerDeath _) => ResetVisibility();
     private HookResult OnPlayerDisconnect(EventPlayerDisconnect _) => ResetVisibility();
 

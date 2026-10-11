@@ -97,24 +97,24 @@ The included config.jsonc contains:
 ```jsonc
 {
   "Enabled": true,
+  "SmokeOcclusion": true,
   "NearestEnemies": 5,
   "VisibleGraceTicks": 20,
-  "BoundsPadding": 48,
+  "BoundsPadding": 38,
   "PredictionSeconds": 0.2,
-  "AlwaysVisibleDistance": 120,
-  "SetDontTransmitToZero": true
+  "AlwaysVisibleDistance": 120
 }
 ```
 
 | Setting | Value | What it does |
 | :--- | :---: | :--- |
 | `Enabled` | `true` | Turns visibility filtering on or off. |
+| `SmokeOcclusion` | 	`true` | Smoke filtering. |
 | `NearestEnemies` | `5` | Number of nearest enemies checked for each viewer. |
 | `VisibleGraceTicks` | `20` | How long an enemy stays available after a clear check. |
 | `BoundsPadding` | `48` | Helping reveal corner peeks earlier. Measured in game units. |
 | `PredictionSeconds` | `0.2` | How far ahead to estimate moving players' positions. `0.2` means 200 ms. |
 | `AlwaysVisibleDistance` | `120` | Nearby enemies within this radius bypass wall checks, including through walls. Measured in game units. |
-| `SetDontTransmitToZero` | `true` | Automatically requests the optional transmission compatibility setting when the server exposes it. |
 
 ### Adjusting corner pop-in
 

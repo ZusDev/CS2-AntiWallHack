@@ -136,7 +136,7 @@ No. It limits transmission of selected hidden enemies and their equipment. It do
 
 ### Does smoke hide enemies from transmission?
 
-No. Smoke is not part of the plugin's visibility checks. Window collision layers are also excluded from the ray filter.
+Yes. Smoke is part of the plugin's visibility checks. Window collision layers are also excluded from the ray filter.
 
 ### Why can I still see a nearby enemy through a wall with a cheat?
 

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AntiWallHack;
 
-[PluginMetadata(Id = "AntiWallHack", Name = "AntiWallHack", Version = "1.0.2", Author = "M1K@c", Description = "Server-side line-of-sight filtering for nearby enemies.")]
+[PluginMetadata(Id = "AntiWallHack", Name = "AntiWallHack", Version = "1.0.3", Author = "M1K@c", Description = "Server-side visibility and smoke filtering for enemies.")]
 public sealed partial class Plugin : BasePlugin
 {
     private Config config = new();
@@ -18,6 +18,11 @@ public sealed partial class Plugin : BasePlugin
 
     private bool faulted;
     private bool roundEnded;
+    private VisibilityLoader? maps;
+    private string mapName = "";
+    private bool mapLoaded;
+    private bool physicsReady;
+    private bool mapUnloading;
 
     public Plugin(ISwiftlyCore core) : base(core){}
 
@@ -26,13 +31,21 @@ public sealed partial class Plugin : BasePlugin
         LoadConfig();
 
         visibility = new PlayerVisibility(Core, config);
+        string mapsDirectory = Path.Combine(Core.PluginPath, "resources", "maps");
+        Directory.CreateDirectory(mapsDirectory);
+        maps = new VisibilityLoader(Core.GameFilesDirectory, mapsDirectory, message => Core.Logger.LogInformation("{Message}", message), config.Debug);
 
         try
         {
             ConfigureTransmitConvar();
             transmitHook = new TransmitHook(Core, OnTransmit, OnFailure);
             RegisterEvents();
-            Core.Logger.LogInformation("AntiWallHack loaded. Checking the nearest {Count} enemies per viewer.", config.NearestEnemies);
+            
+            if (hotReload)
+            {
+                SetMap(Core.Engine.GlobalVars.MapName.ToString(), Core.Engine.WorkshopId);
+                physicsReady = mapLoaded && Core.EntitySystem.GetGameRules() != null;
+            }
         }
         catch
         {
@@ -57,7 +70,7 @@ public sealed partial class Plugin : BasePlugin
 
     private unsafe void OnTransmit(nint infos, int count)
     {
-        if (faulted || !config.Enabled || visibility == null || infos == 0 || count is < 1 or > 64)
+        if (faulted || !config.Enabled || visibility == null || maps?.Current is not { } map || infos == 0 || count is < 1 or > 64)
             return;
 
         if (!Config.CanFilterWithConvar(dontTransmit?.ValueAsString))
@@ -76,7 +89,17 @@ public sealed partial class Plugin : BasePlugin
 
         int tick = Core.Engine.GlobalVars.TickCount;
 
-        visibility.BeginFrame(tick);
+        visibility.BeginFrame(tick, map);
+
+        // A fresh reverse-direction reveal can cancel an earlier hide in this batch.
+        for (int offset = 0; offset < count; offset++)
+        {
+            int index = (offset + (tick & int.MaxValue) % count) % count;
+            if (TransmitInfo.TryRead(((nint*)infos)[index], out int recipient, out _, out _))
+            {
+                visibility.EvaluateViewer(recipient, tick, map);
+            }
+        }
 
         for (int i = 0; i < count; i++)
         {
@@ -111,6 +134,8 @@ public sealed partial class Plugin : BasePlugin
         transmitHook = null;
 
         UnregisterEvents();
+        maps?.Dispose();
+        maps = null;
 
         visibility?.Reset();
 

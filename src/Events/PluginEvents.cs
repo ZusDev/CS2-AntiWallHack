@@ -12,6 +12,8 @@ public sealed partial class Plugin
     {
         Core.Event.OnMapLoad += OnMapLoad;
         Core.Event.OnMapUnload += OnMapUnload;
+        Core.Event.OnWorldUpdate += OnWorldUpdate;
+        Core.Event.OnTick += OnGameTick;
         
         eventHooks.Add(Core.GameEvent.HookPost<EventPlayerSpawn>(OnPlayerSpawn));
         eventHooks.Add(Core.GameEvent.HookPost<EventPlayerDeath>(OnPlayerDeath));
@@ -19,12 +21,15 @@ public sealed partial class Plugin
         eventHooks.Add(Core.GameEvent.HookPost<EventRoundStart>(OnRoundStart));
         eventHooks.Add(Core.GameEvent.HookPost<EventRoundEnd>(OnRoundEnd));
         eventHooks.Add(Core.GameEvent.HookPost<EventHegrenadeDetonate>(OnHeDetonate));
+        eventHooks.Add(Core.GameEvent.HookPost<EventServerSpawn>(OnServerSpawn));
     }
 
     private void UnregisterEvents()
     {
         Core.Event.OnMapLoad -= OnMapLoad;
         Core.Event.OnMapUnload -= OnMapUnload;
+        Core.Event.OnWorldUpdate -= OnWorldUpdate;
+        Core.Event.OnTick -= OnGameTick;
 
         foreach (var eventId in eventHooks)
             Core.GameEvent.Unhook(eventId);
@@ -59,16 +64,84 @@ public sealed partial class Plugin
         return HookResult.Continue;
     }
 
-    private void OnMapLoad(IOnMapLoadEvent _)
+    private void OnMapLoad(IOnMapLoadEvent e)
     {
         roundEnded = false;
         visibility?.Reset();
         ConfigureTransmitConvar();
+        SetMap(e.MapName, Core.Engine.WorkshopId);
     }
 
     private void OnMapUnload(IOnMapUnloadEvent _)
     {
         visibility?.Reset();
+        mapLoaded = false;
+        mapUnloading = true;
+        physicsReady = false;
+        mapName = "";
+        maps?.ChangeMap("");
+    }
+
+    private HookResult OnServerSpawn(EventServerSpawn e)
+    {
+        SetMap(e.MapName, e.AddonName);
+        physicsReady = mapLoaded;
+        return HookResult.Continue;
+    }
+
+    private void SetMap(string name, string addon)
+    {
+        string identity = MapIdentity.Resolve(name, addon == "0" ? "" : addon);
+        mapUnloading = false;
+        mapLoaded = identity.Length != 0;
+
+        if (mapName == identity)
+        {
+            return;
+        }
+        mapName = identity;
+        physicsReady = false;
+        maps?.ChangeMap(identity);
+        visibility?.Reset();
+
+        if (config.Enabled)
+        {
+            maps?.Tick(false, Environment.TickCount64);
+        }
+    }
+
+    private void OnWorldUpdate()
+    {
+        if (!config.Enabled || maps == null || !mapLoaded)
+        {
+            return;
+        }
+
+        // Server spawn or a processed game tick establishes readiness. World
+        // components are not a reliable readiness signal in the managed entity cache.
+        // Poll and publish here even when an empty server is hibernating.
+        var previous = maps.Current;
+        maps.Tick(physicsReady, Environment.TickCount64);
+
+        if (!ReferenceEquals(previous, maps.Current))
+        {
+            visibility?.Reset();
+        }
+    }
+
+    private void OnGameTick()
+    {
+        if (!config.Enabled || mapUnloading || physicsReady || Core.EntitySystem.GetGameRules() == null)
+        {
+            return;
+        }
+
+        if (!mapLoaded)
+        {
+            SetMap(Core.Engine.GlobalVars.MapName.ToString(), Core.Engine.WorkshopId);
+        }
+        
+        physicsReady = mapLoaded;
     }
 
 }

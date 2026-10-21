@@ -22,7 +22,8 @@ internal sealed class SmokeManager
 
     public SmokeManager(ISwiftlyCore core, Config settings)
     {
-        this.core = core; this.settings = settings;
+        this.core = core;
+        this.settings = settings;
 
         if (!settings.SmokeOcclusion) 
             return;
@@ -35,6 +36,7 @@ internal sealed class SmokeManager
             available = SmokeCompatibility.Verify(address, out reason);
         }
         catch (Exception e) { available = false; reason = e.Message; }
+        
         if (!available)
             core.Logger.LogInformation("Smoke filtering disabled: {Reason}.", reason);
     }
@@ -59,7 +61,8 @@ internal sealed class SmokeManager
 
     private void Capture()
     {
-        captured = true; count = 0;
+        captured = true;
+        count = 0;
         now = core.Engine.GlobalVars.CurrentTime;
 
         if (!float.IsFinite(now)) 
@@ -87,7 +90,7 @@ internal sealed class SmokeManager
 
                 var volume = volumes[count] ??= new SmokeVolume();
 
-                if (!SmokeSnapshotReader.Read(entity.Address, OperatingSystem.IsWindows() ? 3008 : 3736, now, volume, frameBuffer))
+                if (!SmokeSnapshotReader.Read(entity.Address, OperatingSystem.IsWindows() ? SmokeCompatibility.WindowsVolumeOffset : SmokeCompatibility.LinuxVolumeOffset, now, volume, frameBuffer))
                 {
                     Disable("invalid or unreadable smoke snapshot"); 
                     return;

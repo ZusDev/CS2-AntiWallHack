@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace AntiWallHack;
 
 public sealed partial class Plugin
@@ -7,26 +5,12 @@ public sealed partial class Plugin
     private void LoadConfig()
     {
         string path = Core.Configuration.GetConfigPath("config.jsonc");
-        var options = new JsonSerializerOptions
+        if (!File.Exists(path))
         {
-            PropertyNameCaseInsensitive = true,
-            ReadCommentHandling = JsonCommentHandling.Skip,
-            AllowTrailingCommas = true,
-            WriteIndented = true
-        };
-
-        if (File.Exists(path))
-        {
-            config = JsonSerializer.Deserialize<Config>(File.ReadAllText(path), options)
-                ?? throw new InvalidDataException("config.jsonc cannot be null.");
-        }
-        else
-        {
-            File.WriteAllText(path, JsonSerializer.Serialize(config, options));
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, Config.DefaultText + Environment.NewLine);
         }
 
+        config = Config.Parse(File.ReadAllText(path));
     }
-
 }
-
-

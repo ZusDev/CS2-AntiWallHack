@@ -13,7 +13,13 @@ internal sealed class PlayerSnapshot
     public required Vector Mins { get; init; }
     public required Vector Maxs { get; init; }
     public required Vector Velocity { get; init; }
+    public required QAngle Angles { get; init; }
     public required byte Team { get; init; }
+    public ulong Buttons { get; init; }
+    public int Cell { get; set; } = -1;
+    public int PeekCell { get; set; } = -1;
+    public bool PredictionReady { get; set; }
+    public Vector EyeLead { get; set; }
     public List<CEntityInstance> Entities { get; } = [];
     public bool Complete { get; set; } = true;
 }

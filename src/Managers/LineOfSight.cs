@@ -15,7 +15,7 @@ internal sealed class LineOfSight
     private readonly Vector[][] samplePoints = Enumerable.Range(0, 64).Select(_ => new Vector[12]).ToArray();
     private readonly Vector[][] smokePoints = Enumerable.Range(0, 64).Select(_ => new Vector[12]).ToArray();
     private readonly bool[] samplesReady = new bool[64];
-    // Encodes current/predicted pass and sample index; only ordering is cached.
+    // Encodes current/predicted pass and sample index, only ordering is cached.
     private readonly int[,] preferredSamples = new int[64, 64];
 
     public void Reset()
@@ -55,8 +55,62 @@ internal sealed class LineOfSight
         BudgetSkips = 0;
     }
 
-    public bool IsHidden(PlayerSnapshot viewer, PlayerSnapshot target)
+    public void PrepareViewer(PlayerSnapshot viewer, VisibilityMap map)
     {
+        if (viewer.PredictionReady)
+        {
+            return;
+        }
+
+        viewer.PredictionReady = true;
+        viewer.PeekCell = viewer.Cell;
+
+        if (!settings.CornerPrediction)
+        {
+            return;
+        }
+
+        var velocity = viewer.Velocity;
+        var requested = CornerPrediction.Lead(new(velocity.X, velocity.Y, velocity.Z), viewer.Angles.Yaw, viewer.Buttons, settings.CornerPredictionSeconds, settings.CornerMaxDistance);
+        float length = requested.Length();
+
+        if (length <= 0.01f || Traces >= MaxTracesPerTick)
+        {
+            return;
+        }
+
+        trace.EntitiesToIgnore.Clear();
+        trace.EntitiesToIgnore.AddRange(viewer.Entities);
+        trace.OwnersToIgnore.Clear();
+        trace.OwnersToIgnore.Add(viewer.Pawn);
+        var wanted = new Vector(requested.X, requested.Y, requested.Z);
+        var endpoint = viewer.Eye + wanted;
+
+        if (!CornerPrediction.Finite(new(endpoint.X, endpoint.Y, endpoint.Z)))
+        {
+            return;
+        }
+
+        Traces++;
+        var hit = core.Trace.TraceShapeLine(viewer.Eye, endpoint, trace);
+        viewer.EyeLead = wanted * CornerPrediction.ClipScale(length, hit.Fraction, hit.StartInSolid);
+
+        if (viewer.Cell >= 0)
+        {
+            var predicted = viewer.Origin + viewer.EyeLead;
+            viewer.PeekCell = map.Cell(new(predicted.X, predicted.Y, predicted.Z));
+        }
+    }
+
+    public DirectVisibility Check(PlayerSnapshot viewer, PlayerSnapshot target, VisibilityMap map)
+    {
+        PrepareViewer(viewer, map);
+
+        if (map.Blocked(viewer.Cell, viewer.PeekCell, target.Cell))
+        {
+            return DirectVisibility.Hidden;
+        }
+
         trace.EntitiesToIgnore.Clear();
 
         trace.EntitiesToIgnore.AddRange(viewer.Entities);
@@ -69,67 +123,95 @@ internal sealed class LineOfSight
 
         int viewerSlot = viewer.Player.PlayerID;
         int targetSlot = target.Player.PlayerID;
+
         if (!samplesReady[targetSlot])
+        {
             BuildSamples(target);
+        }
+
         var points = samplePoints[targetSlot];
 
-        var lead = target.Velocity * settings.PredictionSeconds;
-        var eyeLead = viewer.Velocity * settings.PredictionSeconds;
+        var eyeLead = viewer.EyeLead;
 
-        int sampleCount = lead.Length() < 1 && eyeLead.Length() < 1 ? 12 : 24;
+        int sampleCount = eyeLead.Length() < 1 ? 12 : 24;
         int preferred = preferredSamples[viewerSlot, targetSlot];
-        if (preferred >= sampleCount) preferred %= 12;
+
+        if (preferred >= sampleCount)
+        {
+            preferred %= 12;
+        }
+
+        if (IsSmokeHidden(viewer, targetSlot, eyeLead, sampleCount, preferred))
+        {
+            return DirectVisibility.Hidden;
+        }
 
         for (int order = 0; order < sampleCount; order++)
         {
             int sampleIndex = VisibilityRules.OrderedSample(order, preferred);
             bool predicted = sampleIndex >= 12;
+
             if (Traces >= MaxTracesPerTick)
             {
                 BudgetSkips++;
-                return false;
+                return DirectVisibility.Unknown;
             }
 
             Traces++;
             var start = viewer.Eye + (predicted ? eyeLead : new Vector());
-            var end = points[sampleIndex % 12] + (predicted ? lead : new Vector());
+            var end = points[sampleIndex % 12];
+
+            if (!CornerPrediction.Finite(new(start.X, start.Y, start.Z)) || !CornerPrediction.Finite(new(end.X, end.Y, end.Z)))
+            {
+                return DirectVisibility.Unknown;
+            }
+
             var hit = core.Trace.TraceShapeLine(start, end, trace);
 
             if (!VisibilityRules.IsOccluded(hit.Fraction, hit.StartInSolid))
             {
-                // Do not combine a wall hit at one endpoint with smoke at a
-                // different endpoint. The smaller smoke bounds must independently
-                // be fully obscured. Uncertain geometry still fails open.
                 bool clear = !hit.StartInSolid && float.IsFinite(hit.Fraction) && hit.Fraction >= 0.99f && hit.Fraction <= 1;
-                if (!clear) return false;
-                bool smokeHidden = IsSmokeHidden(viewer, targetSlot, lead, eyeLead, sampleCount, preferred);
-                if (!smokeHidden) preferredSamples[viewerSlot, targetSlot] = sampleIndex;
-                return smokeHidden;
+
+                if (!clear)
+                {
+                    return DirectVisibility.Unknown;
+                }
+
+                preferredSamples[viewerSlot, targetSlot] = sampleIndex;
+
+                return DirectVisibility.Visible;
             }
 
             if (hit.Entity is { } entity && (!IsOccluder(entity) || trace.EntitiesToIgnore.Any(ignored => ignored.Address == entity.Address)))
-                return false;
+            {
+                return DirectVisibility.Unknown;
+            }
         }
-        return true;
+
+        return DirectVisibility.Hidden;
     }
 
-    private bool IsSmokeHidden(PlayerSnapshot viewer, int targetSlot, Vector lead, Vector eyeLead, int sampleCount, int preferred)
+    private bool IsSmokeHidden(PlayerSnapshot viewer, int targetSlot, Vector eyeLead, int sampleCount, int preferred)
     {
         for (int order = 0; order < sampleCount; order++)
         {
             int index = VisibilityRules.OrderedSample(order, preferred);
             bool predicted = index >= 12;
             var start = viewer.Eye + (predicted ? eyeLead : new Vector());
-            var end = smokePoints[targetSlot][index % 12] + (predicted ? lead : new Vector());
-            if (!smoke.IsBlocked(new(start.X, start.Y, start.Z), new(end.X, end.Y, end.Z),
-                predicted ? settings.PredictionSeconds : 0)) return false;
+            var end = smokePoints[targetSlot][index % 12];
+
+            if (!smoke.IsBlocked(new(start.X, start.Y, start.Z), new(end.X, end.Y, end.Z), predicted ? settings.CornerPredictionSeconds : 0))
+            {
+                return false;
+            }
         }
+
         return true;
     }
 
     private void BuildSamples(PlayerSnapshot target)
     {
-        target.Pawn.EyeAngles.ToDirectionVectors(out var forward, out _, out _);
+        target.Angles.ToDirectionVectors(out var forward, out _, out _);
         FillSamples(target, forward, settings.BoundsPadding, samplePoints[target.Player.PlayerID]);
         FillSamples(target, forward, SmokeBoundsPadding, smokePoints[target.Player.PlayerID]);
         samplesReady[target.Player.PlayerID] = true;
@@ -141,8 +223,12 @@ internal sealed class LineOfSight
         Vector hi = target.Maxs + new Vector(padding, padding, padding);
         points[0] = target.Eye;
         points[1] = target.Origin + (lo + hi) * 0.5f;
+
         for (int i = 0; i < 8; i++)
+        {
             points[i + 2] = target.Origin + new Vector((i & 1) == 0 ? lo.X : hi.X, (i & 2) == 0 ? lo.Y : hi.Y, (i & 4) == 0 ? lo.Z + 4 : hi.Z);
+        }
+        
         points[10] = target.Eye + forward * 64;
         points[11] = target.Origin + new Vector(0, 0, 32) + forward * 40;
     }

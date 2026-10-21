@@ -5,9 +5,14 @@ namespace AntiWallHack;
 
 internal static class SmokeCompatibility
 {
-    public static bool Matches(bool windows, long size, uint crc) => windows
-        ? size == 34628248 && crc == 4192197381u
-        : size == 41724600 && crc == 775764504u;
+    // Rechecked against the supplied Linux binary on 2026-10-21.
+    // All accepted Linux binaries use the same private smoke layout.
+    public const int WindowsVolumeOffset = 3008;
+    public const int LinuxVolumeOffset = 3736;
+
+    public static bool Matches(bool windows, long size, uint crc) => windows ? size == 34628248 && crc == 4192197381u : (size == 41724600 && crc == 775764504u) || (size == 41726328 && (crc == 131044578u || crc == 705576273u));
+
+    public static bool SupportedSize(bool windows, long size) => windows ? size == 34628248 : size is 41724600 or 41726328;
 
     public static uint Crc32(Stream stream)
     {
@@ -82,11 +87,10 @@ internal static class SmokeCompatibility
             }
 
             using var file = File.OpenRead(path);
-            long expectedSize = OperatingSystem.IsWindows() ? 34628248 : 41724600;
-
-            if (file.Length != expectedSize) 
+            
+            if (!SupportedSize(OperatingSystem.IsWindows(), file.Length))
             { 
-                reason = $"unsupported server binary {path}: size {file.Length}, expected {expectedSize}"; 
+                reason = $"unsupported server binary {path}: size {file.Length}";
                 return false; 
             }
 
